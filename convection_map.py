@@ -13,6 +13,7 @@ import potential_functions as pf
 import matplotlib.pyplot as plt
 
 import fpipy
+import aacgmv2
 
 stations=["ade", "adw", "bks", "cly", "cve", "cvw", "fhe", "fhw", "gbr", "han",
 		   "hkw", "hok", "inv", "kap", "kod", "ksr", "lyr", "pgr", "pyk", 
@@ -124,19 +125,19 @@ if loop == True:
 			order = 8
 			
 			#get data and model lat/lon
-			mlats = vectors.mlats[time_index]
-			mlons = vectors.mlons[time_index]
+			plasma_mlats = vectors.mlats[time_index]
+			plasma_mlons = vectors.mlons[time_index]
 			mod_mlats = vectors.mod_mlats[time_i]
 			mod_mlons = vectors.mod_mlons[time_i]
 			#append model to data
-			mlats = np.append(mlats, mod_mlats)
-			mlons = np.append(mlons, mod_mlons)
-			mcolats = 90-mlats
+			all_mlats = np.append(plasma_mlats, mod_mlats)
+			all_mlons = np.append(plasma_mlons, mod_mlons)
+			all_mcolats = 90-all_mlats
 			#affix lats/lons into one array for spherical fitting input
-			pos = np.array([mlats, mlons])
+			pos = np.array([all_mlats, all_mlons])
 			
 			#get velocity and direction from spherical fit
-			mag, az = pf.find_gradV(pos, solution, latmin, lon_shft, lat_shft, order)
+			plasma_vels, plasma_az = pf.find_gradV(pos, solution, latmin, lon_shft, lat_shft, order)
 			
 			####################
 			### Get FPI Data ###
@@ -217,19 +218,21 @@ order = 8
 sample = vectors.get_time_data(time_i)
 
 #get data and model lat/lon
-mlats = sample["mlats"]
-mlons = sample["mlons"]
+plasma_mlats = sample["mlats"]
+plasma_mlons = sample["mlons"]
 mod_mlats = vectors.mod_mlats[time_i]
 mod_mlons = vectors.mod_mlons[time_i]
 #append model to data
-mlats = np.append(mlats, mod_mlats)
-mlons = np.append(mlons, mod_mlons)
-mcolats = 90-mlats
+all_mlats = np.append(plasma_mlats, mod_mlats)
+all_mlons = np.append(plasma_mlons, mod_mlons)
+plasma_mcolats = 90-plasma_mlats
 #affix lats/lons into one array for spherical fitting input
-pos = np.array([mlats, mlons])
+pos = np.array([all_mlats, all_mlons])
 
 #get velocity and direction from spherical fit
-mag, az = pf.find_gradV(pos, solution, latmin, lon_shft, lat_shft, order)
+all_plasma_vels, all_plasma_az = pf.find_gradV(pos, solution, latmin, lon_shft, lat_shft, order)
+plasma_vels = all_plasma_vels[0:len(plasma_mlats)]
+plasma_az = all_plasma_az[0:len(plasma_mlats)]
 
 ####################
 ### Get FPI info ###
@@ -287,7 +290,6 @@ ax0.errorbar(W_time_indexes, hW, yerr = dW, marker="o", markersize=2.5, label = 
 ax0.errorbar(E_time_indexes, hE, yerr = dE, marker="o", markersize=2.5, label = "East Look")
 ax0.set_xticks(np.arange(0, num_seconds+minute_interval*60, minute_interval*60))
 ax0.set_xticklabels(tick_labels)
-#ax0.set_ylim([-150, 100])
 ax0.axhline(y=0, color = "k", linestyle = "-.")
 ax0.grid(linestyle = "--")
 ax0.legend()
@@ -295,7 +297,6 @@ ax0.legend()
 ax1.errorbar(S_time_indexes, hS, yerr = dS, marker="o", markersize=2.5, label = "South Look")
 ax1.errorbar(N_time_indexes, hN, yerr = dN, marker="o", markersize=2.5, label = "North Look")
 ax1.axhline(y=0, color = "k", linestyle = "-.")
-#ax1.set_ylim([-600, 150])
 ax1.grid(linestyle = "--")
 ax1.legend()
 
@@ -308,11 +309,36 @@ ax2.legend()
 plt.show()
 
 #plot full convection map
-dr, dtheta = pydatadarn.plotting.vector_plot(mcolats, mlons, az, mag, time=time_i, 
-								station_names=stations, FPI_names=FPI_stations, 
+#convert plasma vectors from magnetic to geographic
+#plasma_mlats, plasma_mlons, alt = aacgmv2.convert_latlon_arr(mlats, mlons, 0, dtime_i, "A2G")
+plasma_mcolats = 90-plasma_mlats
+
+#convert neutral wind vector from geographic to aacgm
+#find how much look direction is different
+#get coordinates of geographic north in aacgm
+glat, glon, galt = aacgmv2.convert_latlon(90, 0, 0, dtime_i)
+#get coordinates of UAO station in mlat
+uao_lat, uao_lon = UAO.get_aacgm(dtime_i)
+#calculate angle difference
+look_change = pydatadarn.tools.cosine_rule([glat, glon], [uao_lat, uao_lon], [0, 0], polar=True)
+#figure out if geographic north is east or west of magnetic to determine which way the look changes
+if pydatadarn.tools.lon_look(0, glon) == "E":
+	look_change = -look_change
+#add our look difference
+uao_neutral_az += look_change
+
+#plot only negative plasma kvectors
+# test_indexes = np.where(plasma_az < 0)
+# plasma_mcolats = plasma_mcolats[test_indexes]
+# plasma_mlons = plasma_mlons[test_indexes]
+# plasma_az = plasma_az[test_indexes]
+# plasma_vels = plasma_vels[test_indexes]
+
+dr, dtheta = pydatadarn.plotting.vector_plot(plasma_mcolats, plasma_mlons, plasma_az, plasma_vels, time=time_i, 
+								station_names=stations, FPI_names=["uao"], 
 								FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, mlt=True, 
-								mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360, cbar_min=min(mag), 
-								cbar_max=max(mag))
+								mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360, cbar_min=min(plasma_vels), 
+								cbar_max=max(plasma_vels))
 
 #plot only neutral wind and ion vector at FPI station
 #get velocity and direction from spherical fit
@@ -323,7 +349,7 @@ uao_plasma_vel = np.array([uao_plasma_vel])
 uao_plasma_az = np.array([uao_plasma_az])
 
 uao_dr, uao_dtheta = pydatadarn.plotting.vector_plot(uao_mcolat, uao_mlon, uao_plasma_az, uao_plasma_vel, time=time_i, 
-								station_names=stations, FPI_names=FPI_stations, 
+								station_names=stations, FPI_names=["uao"], 
 								FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, mlt=True, 
-								mcolat_min=32, mcolat_max=45, theta_min=0, theta_max=90, cbar_min=min(mag), 
-								cbar_max=max(mag))
+								mcolat_min=32, mcolat_max=45, theta_min=0, theta_max=90, cbar_min=min(plasma_vels), 
+								cbar_max=max(plasma_vels))
