@@ -377,8 +377,15 @@ def find_gradV(pos, solution, latmin, lon_shft, lat_shft, order):
 		print("all vectors have 0 length")
 		return
 	
-	vaz = np.zeros(len(vmag), float)
-	vaz[q] = np.rad2deg(np.arctan2(vvec[1,q], -vvec[0,q]))
+	#print("vmag", vmag)
+	if isinstance(vmag, np.ndarray):
+		vaz = np.zeros(len(vmag), float)
+		vaz[q] = np.rad2deg(np.arctan2(vvec[1,q], -vvec[0,q]))
+	else:
+		vaz = np.rad2deg(np.arctan2(vvec[1,q], - vvec[0,q]))
+		while isinstance(vaz, np.ndarray):
+			vaz = vaz[0]
+			
 	
 	# Now shift back into "real world"
 	if lat_shft != 0:
