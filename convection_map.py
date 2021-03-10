@@ -82,14 +82,21 @@ hW = -hW
 ### Get Time sample ###
 #######################
 
-neutral_vel = np.array([])
-plasma_vel = np.array([])
+neutral_vel_interval = np.array([])
+neutral_az_interval = np.array([])
+plasma_vel_interval = np.array([])
+plasma_az_interval = np.array([])
+latmins = np.array([])
 times = np.array([])
+
+hmin=1
+hmax=8
+min_interval=10
 
 loop=True
 if loop == True:
-	for hour in range(1, 9):
-		for minute in range(1, 61, 10):
+	for hour in range(hmin, hmax+1):
+		for minute in range(0, 60, min_interval):
 			time_i = "2013/10/02 {:02d}:{:02d}:00".format(hour, minute)
 			print(time_i)
 			time_index = np.where(vectors.times == time_i)
@@ -163,26 +170,69 @@ if loop == True:
 			ANN = fpipy.FPIStation("ann")
 	
 			#get plasma velocity at the station
-			uao_mlat, uao_mlon = UAO.get_aacgm(dtime_i)
+			uao_mlat, uao_mlon = UAO.get_coords(dtime_i, aacgm=True)
 			uao_mcolat = 90-uao_mlat
 			uao_pos = np.atleast_2d(np.array([uao_mlat, uao_mlon])).T
 			uao_plasma_vel, uao_plasma_az = pf.find_gradV(uao_pos, solution, latmin, lon_shft, lat_shft, order)
 			
 			#append to array
-			neutral_vel = np.append(neutral_vel, uao_neutral_vel)
-			plasma_vel = np.append(plasma_vel, uao_plasma_vel)
+			neutral_vel_interval = np.append(neutral_vel_interval, uao_neutral_vel)
+			neutral_az_interval = np.append(neutral_az_interval, uao_neutral_az)
+			plasma_vel_interval = np.append(plasma_vel_interval, uao_plasma_vel)
+			plasma_az_interval = np.append(plasma_az_interval, uao_plasma_az)
+			latmins = np.append(latmins, latmin)
 			times = np.append(times, time_i)
 			
 			print("\n")
 			
+#get x array
+x = np.arange(0, int(60/min_interval)*hmax)
+tick_labels = np.array([])
+
+time_tick = pydatadarn.tools.time_to_dtime(times[0])
+minute_interval = 60
+while time_tick <= pydatadarn.tools.time_to_dtime(times[-1]):
+ 	hour = time_tick.hour
+ 	minute = time_tick.minute
+ 	tick_labels = np.append(tick_labels, "{:02d}:{:02d}".format(hour, minute))
+ 	time_tick = time_tick + datetime.timedelta(minutes=60)	
+	 
+#add -ve sign for westwards flowing currents
+# neutral_vel_interval = neutral_vel_interval*np.sign(neutral_az_interval)
+# plasma_vel_interval = plasma_vel_interval*np.sign(plasma_az_interval)
+
 plt.figure()
-plt.plot(neutral_vel, label="neutral")
-plt.plot(plasma_vel, label="plasma")
+plt.plot(x, neutral_vel_interval, label="neutral")
+plt.plot(x, plasma_vel_interval, label="plasma")
+plt.axhline(0, color="r", linestyle="--")
 plt.legend()
+plt.xticks(np.arange(0, len(x), 6), tick_labels)
+plt.grid(linestyle = "--")
 plt.show()
 
+#get east and north look directions at uao site of plasma
+plasma_EW = abs(plasma_vel_interval*np.cos(np.deg2rad(plasma_az_interval)))
+plasma_NS = abs(plasma_vel_interval*np.sin(np.deg2rad(plasma_az_interval)))
 
-time_i = "2013/10/02 06:31:00"
+plasma_N = np.empty(len(plasma_NS))
+plasma_E = np.empty(len(plasma_EW))
+
+#determine if flow is positive/negative northwards/eastwards
+plasma_E = plasma_EW*np.sign(plasma_az_interval)
+plasma_N = plasma_NS*np.sign(np.cos(np.deg2rad(plasma_az_interval)))
+
+plt.figure()
+plt.plot(plasma_N, label = "North Look")
+plt.plot(plasma_E, label = "East Look")
+plt.axhline(0, color="k", linestyle = "--")
+plt.legend()
+plt.xticks(np.arange(0, len(x), 6), tick_labels)
+plt.grid(linestyle = "--")
+plt.show()
+	
+	
+
+time_i = "2013/10/02 08:30:00"
 time_index = np.where(vectors.times == time_i)
 
 #convert time_i into seconds
@@ -234,6 +284,9 @@ all_plasma_vels, all_plasma_az = pf.find_gradV(pos, solution, latmin, lon_shft, 
 plasma_vels = all_plasma_vels[0:len(plasma_mlats)]
 plasma_az = all_plasma_az[0:len(plasma_mlats)]
 
+boundary_mlats = vectors.boundary_mlats[time_i]
+boundary_mlons = vectors.boundary_mlons[time_i]
+
 ####################
 ### Get FPI info ###
 ####################
@@ -258,7 +311,7 @@ UAO = fpipy.FPIStation("uao")
 ANN = fpipy.FPIStation("ann")
 
 #obtain pasma flow at station
-uao_mlat, uao_mlon = UAO.get_aacgm(dtime_i)
+uao_mlat, uao_mlon = UAO.get_coords(dtime_i, aacgm=True)
 uao_mcolat = 90-uao_mlat
 uao_pos = np.atleast_2d(np.array([uao_mlat, uao_mlon])).T
 uao_plasma_vel, uao_plasma_az = pf.find_gradV(uao_pos, solution, latmin, lon_shft, lat_shft, order)
@@ -276,10 +329,6 @@ while time_tick <= dtime_max:
  	minute = time_tick.minute
  	tick_labels = np.append(tick_labels, "{:02d}:{:02d}".format(hour, minute))
  	time_tick = time_tick + datetime.timedelta(minutes=60)
-
-xlabels = np.array([])
-for i in range(0, 11):
- 	xlables = np.append(xlabels, "00:{:02d}".format(i))
 
 fig, ax = plt.subplots(3, 1, sharex=True)
 ax0 = ax[0]
@@ -318,7 +367,7 @@ plasma_mcolats = 90-plasma_mlats
 #get coordinates of geographic north in aacgm
 glat, glon, galt = aacgmv2.convert_latlon(90, 0, 0, dtime_i)
 #get coordinates of UAO station in mlat
-uao_lat, uao_lon = UAO.get_aacgm(dtime_i)
+uao_lat, uao_lon = UAO.get_coords(dtime_i, aacgm=True)
 #calculate angle difference
 look_change = pydatadarn.tools.cosine_rule([glat, glon], [uao_lat, uao_lon], [0, 0], polar=True)
 #figure out if geographic north is east or west of magnetic to determine which way the look changes
@@ -336,9 +385,11 @@ uao_neutral_az += look_change
 
 dr, dtheta = pydatadarn.plotting.vector_plot(plasma_mcolats, plasma_mlons, plasma_az, plasma_vels, time=time_i, 
 								station_names=stations, FPI_names=["uao"], 
-								FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, mlt=True, 
-								mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360, cbar_min=min(plasma_vels), 
-								cbar_max=max(plasma_vels))
+								FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
+								boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, 
+								mlt=True, cart=False, 
+								mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360, cbar_min=0, 
+								cbar_max=1000)
 
 #plot only neutral wind and ion vector at FPI station
 #get velocity and direction from spherical fit
@@ -350,6 +401,23 @@ uao_plasma_az = np.array([uao_plasma_az])
 
 uao_dr, uao_dtheta = pydatadarn.plotting.vector_plot(uao_mcolat, uao_mlon, uao_plasma_az, uao_plasma_vel, time=time_i, 
 								station_names=stations, FPI_names=["uao"], 
-								FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, mlt=True, 
+								FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, mlt=False, 
 								mcolat_min=32, mcolat_max=45, theta_min=0, theta_max=90, cbar_min=min(plasma_vels), 
+								cbar_max=max(plasma_vels))
+
+area_lats = np.arange(40, 90, 1)
+area_lons = np.arange(-20, 20, 1)
+areas = np.meshgrid(area_lons, area_lats)
+test_lons = areas[0].flatten()
+test_lats = areas[1].flatten()
+test_mcolats = 90-test_lats
+
+test_pos = np.atleast_2d(np.array([test_lats, test_lons]))
+
+test_vels, test_az = pf.find_gradV(test_pos, solution, latmin, lon_shft, lat_shft, order)
+
+dr, dtheta = pydatadarn.plotting.vector_plot(test_mcolats, test_lons, test_az, test_vels, time=time_i, 
+								station_names=stations, FPI_names=["uao"], 
+								FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, mlt=False, 
+								mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=90, cbar_min=min(plasma_vels), 
 								cbar_max=max(plasma_vels))
