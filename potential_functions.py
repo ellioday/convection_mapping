@@ -6,6 +6,7 @@ Created on Tue Feb 23 13:38:59 2021
 @author: elliott
 """
 
+import igrf
 import numpy as np
 
 Re = 6357.e3
@@ -331,32 +332,37 @@ def cal_efield(pos, solution, latmin, lon_shft, lat_shft, order):
 	
 	return e_field
 	
-def eval_vel(pcoeffs, plm, pos, lmax, latmin):
+def eval_vel(pcoeffs, plm, pos, lmax, latmin, dtime):
 	
 	e_field = eval_efield(pcoeffs, plm, pos, lmax, latmin)
 	
 	Altitude = 300*1000
 	bpolar = -.62e-4
 	phi = 90 - pos[0,]
-	bmag = bpolar*(1.-3.*Altitude/Re)*np.sqrt(3.*np.cos(np.deg2rad(phi))**2 +1.)/2.
+	#bmag = bpolar*(1.-3.*Altitude/Re)*np.sqrt(3.*np.cos(np.deg2rad(phi))**2 +1.)/2.
+	bmag = np.empty(len(e_field[0,]))
+	#get magnetic field strength from IGRF model
+	for i in range(len(bmag)):
+		bfield = igrf.igrf(dtime, pos[0,i], pos[1,i], 150)
+		bmag[i] = bfield.total.to_dict()["data"][0]*-1e-9
 	vel = np.copy(e_field)
 	vel[0,] = e_field[1,]/bmag
 	vel[1,] = -e_field[0,]/bmag
 	
 	return vel
 
-def calc_vels(pos, solution, latmin, order):
+def calc_vels(pos, solution, latmin, order, dtime):
 	
 	theta = np.deg2rad(90. - pos[0,])
 	thetamax = np.deg2rad(90.-latmin)
 	theta_prime, alpha = norm_theta(theta, thetamax)
 	x = np.cos(theta_prime)
 	plm = eval_legendre(order, x)
-	vvec = eval_vel(solution[2,], plm, pos, order, latmin)
+	vvec = eval_vel(solution[2,], plm, pos, order, latmin, dtime)
 	
 	return vvec
 
-def find_gradV(pos, solution, latmin, lon_shft, lat_shft, order):
+def find_gradV(pos, solution, latmin, lon_shft, lat_shft, order, dtime):
 	
 	# First shift coordinates into "model" reference (pole shifted 4 deg nightwards)
 	posx = pos # lat, lon
@@ -365,7 +371,7 @@ def find_gradV(pos, solution, latmin, lon_shft, lat_shft, order):
 		kaz = np.zeros(npnts, float)
 
 	# calculate vectors
-	vvec = calc_vels(posx, solution, latmin, order)
+	vvec = calc_vels(posx, solution, latmin, order, dtime)
 	vmag = np.sqrt(vvec[0,]**2 + vvec[1,]**2)
 	if len(vmag) == 1:
 		vmag = vmag[0]
