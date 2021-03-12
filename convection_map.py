@@ -90,7 +90,7 @@ latmins = np.array([])
 times = np.array([])
 
 hmin=3
-hmax=7
+hmax=8
 min_interval=10
 
 loop=True
@@ -133,6 +133,7 @@ if loop == True:
 			
 			#get data and model lat/lon
 			plasma_mlats = vectors.mlats[time_index]
+			plasma_mcolats = 90-plasma_mlats
 			plasma_mlons = vectors.mlons[time_index]
 			mod_mlats = vectors.mod_mlats[time_i]
 			mod_mlons = vectors.mod_mlons[time_i]
@@ -141,7 +142,7 @@ if loop == True:
 			all_mlons = np.append(plasma_mlons, mod_mlons)
 			all_mcolats = 90-all_mlats
 			#affix lats/lons into one array for spherical fitting input
-			pos = np.array([all_mlats, all_mlons])
+			pos = np.array([plasma_mlats, plasma_mlons])
 			
 			#get velocity and direction from spherical fit
 			plasma_vels, plasma_az = pf.find_gradV(pos, solution, latmin, lon_shft, lat_shft, order, dtime_i)
@@ -174,6 +175,30 @@ if loop == True:
 			uao_mcolat = 90-uao_mlat
 			uao_pos = np.atleast_2d(np.array([uao_mlat, uao_mlon])).T
 			uao_plasma_vel, uao_plasma_az = pf.find_gradV(uao_pos, solution, latmin, lon_shft, lat_shft, order, dtime_i)
+			
+			if not isinstance(uao_plasma_vel, np.ndarray):
+				uao_plasma_vel= np.array(uao_plasma_vel)
+			if not isinstance(uao_plasma_az, np.ndarray):
+				uao_plasma_az = np.array(uao_plasma_az)
+			if not isinstance(uao_mcolat, np.ndarray):
+				uao_mcolat = np.array(uao_mcolat)
+			if not isinstance(uao_mlon, np.ndarray):
+				uao_mlon = np.array(uao_mlon)
+			
+			#append uao station to plasma data locations
+			plasma_mcolats = np.append(plasma_mcolats, uao_mcolat)
+			plasma_mlons = np.append(plasma_mlons, uao_mlon)
+			plasma_vels = np.append(plasma_vels, uao_plasma_vel)
+			plasma_az = np.append(plasma_az, uao_plasma_az)
+			
+			#get heppner-maynard boundary
+			boundary_mlats = vectors.boundary_mlats[time_i]
+			boundary_mlons = vectors.boundary_mlons[time_i]
+			
+			uao_dr, uao_dtheta = pydatadarn.plotting.vector_plot(plasma_mcolats, plasma_mlons, plasma_az, plasma_vels, time=time_i, 
+											station_names=stations, FPI_names=["uao"], 
+											FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, mlt=False, cart=True,
+											mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360, save=True)
 			
 			#append to array
 			neutral_vel_interval = np.append(neutral_vel_interval, uao_neutral_vel)
@@ -388,22 +413,26 @@ dr, dtheta = pydatadarn.plotting.vector_plot(plasma_mcolats, plasma_mlons, plasm
 								FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
 								boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, 
 								mlt=False, cart=True, 
-								mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360, cbar_min=0, 
-								cbar_max=1000)
+								mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360)
 
 #plot only neutral wind and ion vector at FPI station
 #get velocity and direction from spherical fit
 uao_pos = np.atleast_2d(np.array([uao_mlat, uao_mlon])).T
 uao_plasma_vel, uao_plasma_az = pf.find_gradV(uao_pos, solution, latmin, lon_shft, lat_shft, order, dtime_i)
 
-uao_plasma_vel = np.array([uao_plasma_vel])
-uao_plasma_az = np.array([uao_plasma_az])
+if not isinstance(uao_plasma_vel, np.ndarray):
+	uao_plasma_vel= np.array(uao_plasma_vel)
+if not isinstance(uao_plasma_az, np.ndarray):
+	uao_plasma_az = np.array(uao_plasma_az)
+if not isinstance(uao_mcolat, np.ndarray):
+	uao_mcolat = np.array(uao_mcolat)
+if not isinstance(uao_mlon, np.ndarray):
+	uao_mlon = np.array(uao_mlon)
 
 uao_dr, uao_dtheta = pydatadarn.plotting.vector_plot(uao_mcolat, uao_mlon, uao_plasma_az, uao_plasma_vel, time=time_i, 
 								station_names=stations, FPI_names=["uao"], 
 								FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, mlt=False, cart=True,
-								mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360, cbar_min=min(plasma_vels), 
-								cbar_max=max(plasma_vels))
+								mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360, save=True)
 
 area_lats = np.arange(40, 90, 1)
 area_lons = np.arange(-20, 20, 1)
