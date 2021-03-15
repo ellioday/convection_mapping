@@ -87,11 +87,23 @@ neutral_az_interval = np.array([])
 plasma_vel_interval = np.array([])
 plasma_az_interval = np.array([])
 latmins = np.array([])
-times = np.array([])
+times = np.array([]) 
 
-hmin=3
+hmin=0
 hmax=8
 min_interval=10
+
+#get x array
+x = np.arange(0, int(60/min_interval)*(hmax+1-hmin))
+class Lat_Lon_Storage():
+	def __init__(self, lats, lons):
+		self.lats=lats
+		self.lons=lons
+lat_lon_dict = dict()
+HMB_storage = np.empty([len(x), 2, 73])
+HMB_storage[:] = np.nan
+
+count = 0
 
 loop=True
 if loop == True:
@@ -176,6 +188,8 @@ if loop == True:
 			uao_pos = np.atleast_2d(np.array([uao_mlat, uao_mlon])).T
 			uao_plasma_vel, uao_plasma_az = pf.find_gradV(uao_pos, solution, latmin, lon_shft, lat_shft, order, dtime_i)
 			
+			lat_lon_dict[time_i] = Lat_Lon_Storage(plasma_mlats, plasma_mlons)
+			
 			if not isinstance(uao_plasma_vel, np.ndarray):
 				uao_plasma_vel= np.array(uao_plasma_vel)
 			if not isinstance(uao_plasma_az, np.ndarray):
@@ -200,6 +214,16 @@ if loop == True:
 											FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, mlt=False, cart=True,
 											mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360, save=True)
 			
+			los_vs_index = np.where(vectors.times == time_i)
+			los_vs = vectors.los_vs[los_vs_index]
+			mcolats = vectors.mcolats[los_vs_index]
+			mlons = vectors.mlons[los_vs_index]
+			kvecs = vectors.kvecs[los_vs_index]
+			
+			los_dr, los_dtheta = pydatadarn.plotting.vector_plot(mcolats, mlons, kvecs, los_vs, time=time_i,
+																 station_names=stations, mlt=False, cart=True,
+																 mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360)
+			
 			#append to array
 			neutral_vel_interval = np.append(neutral_vel_interval, uao_neutral_vel)
 			neutral_az_interval = np.append(neutral_az_interval, uao_neutral_az)
@@ -207,8 +231,11 @@ if loop == True:
 			plasma_az_interval = np.append(plasma_az_interval, uao_plasma_az)
 			latmins = np.append(latmins, latmin)
 			times = np.append(times, time_i)
+			HMB_storage[count, 0, ] = boundary_mlats
+			HMB_storage[count, 1, ] = boundary_mlons
 			
 			print("\n")
+			count += 1
 			
 #get x array
 x = np.arange(0, int(60/min_interval)*(hmax+1-hmin))
@@ -414,6 +441,16 @@ dr, dtheta = pydatadarn.plotting.vector_plot(plasma_mcolats, plasma_mlons, plasm
 								boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, 
 								mlt=False, cart=True, 
 								mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360)
+
+los_vs_index = np.where(vectors.times == time_i)
+los_vs = vectors.los_vs[los_vs_index]
+mcolats = vectors.mcolats[los_vs_index]
+mlons = vectors.mlons[los_vs_index]
+kvecs = vectors.kvecs[los_vs_index]
+
+los_dr, los_dtheta = pydatadarn.plotting.vector_plot(mcolats, mlons, kvecs, los_vs, time=time_i,
+													 station_names=stations, mlt=False, cart=True,
+													 mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360)
 
 #plot only neutral wind and ion vector at FPI station
 #get velocity and direction from spherical fit
