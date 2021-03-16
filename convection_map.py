@@ -9,6 +9,8 @@ Created on Mon Feb 22 13:56:40 2021
 import numpy as np
 import pydatadarn
 import datetime
+import elliotools
+
 import potential_functions as pf
 import matplotlib.pyplot as plt
 
@@ -41,24 +43,24 @@ FPI.add_HDF5(fname2)
 FPI.get_table()
 
 time_min = "2013/10/02 00:30:00"
-time_max = "2013/10/02 08:30:00"
-dtime_min = pydatadarn.tools.time_to_dtime(time_min)
-dtime_max = pydatadarn.tools.time_to_dtime(time_max)
+time_max = "2013/10/02 09:30:00"
+dtime_min = elliotools.time_to_dtime(time_min)
+dtime_max = elliotools.time_to_dtime(time_max)
 
 #get data 
 N, E, S, W, zen, dN, dE, dS, dW, dzen, N_times, E_times, S_times, W_times, zen_times = FPI.get_azm_vels(
 	dtime_min = dtime_min, dtime_max = dtime_max)
 
 #get dtimes
-N_dtimes = pydatadarn.tools.time_to_dtime(N_times)
-E_dtimes = pydatadarn.tools.time_to_dtime(E_times)
-S_dtimes = pydatadarn.tools.time_to_dtime(S_times)
-W_dtimes = pydatadarn.tools.time_to_dtime(W_times)
-zen_dtimes = pydatadarn.tools.time_to_dtime(zen_times)
+N_dtimes = elliotools.time_to_dtime(N_times)
+E_dtimes = elliotools.time_to_dtime(E_times)
+S_dtimes = elliotools.time_to_dtime(S_times)
+W_dtimes = elliotools.time_to_dtime(W_times)
+zen_dtimes = elliotools.time_to_dtime(zen_times)
 
 #calculate number of seconds between start and end time
-dtime_min = pydatadarn.tools.time_to_dtime(time_min)
-dtime_max = pydatadarn.tools.time_to_dtime(time_max)
+dtime_min = elliotools.time_to_dtime(time_min)
+dtime_max = elliotools.time_to_dtime(time_max)
 num_seconds = (dtime_max - dtime_min).seconds
 
 #get times in seconds from start time instead of as dtime objects
@@ -89,7 +91,7 @@ plasma_az_interval = np.array([])
 latmins = np.array([])
 times = np.array([]) 
 
-hmin=0
+hmin=1
 hmax=8
 min_interval=10
 
@@ -114,7 +116,7 @@ if loop == True:
 			time_index = np.where(vectors.times == time_i)
 			
 			#convert time_i into seconds
-			dtime_i = pydatadarn.tools.time_to_dtime(time_i)
+			dtime_i = elliotools.time_to_dtime(time_i)
 			time_s = (dtime_i - dtime_min).seconds
 			
 			##########################
@@ -209,10 +211,10 @@ if loop == True:
 			boundary_mlats = vectors.boundary_mlats[time_i]
 			boundary_mlons = vectors.boundary_mlons[time_i]
 			
-			uao_dr, uao_dtheta = pydatadarn.plotting.vector_plot(plasma_mcolats, plasma_mlons, plasma_az, plasma_vels, time=time_i, 
+			uao_dr, uao_dtheta = pydatadarn.vector_plot(plasma_mcolats, plasma_mlons, plasma_az, plasma_vels, time=time_i, 
 											station_names=stations, FPI_names=["uao"], 
 											FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, mlt=False, cart=True,
-											mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360, save=True)
+											colat_min=90-30, colat_max=0, lon_min=-125, lon_max=-65, save=True)
 			
 			los_vs_index = np.where(vectors.times == time_i)
 			los_vs = vectors.los_vs[los_vs_index]
@@ -220,9 +222,9 @@ if loop == True:
 			mlons = vectors.mlons[los_vs_index]
 			kvecs = vectors.kvecs[los_vs_index]
 			
-			los_dr, los_dtheta = pydatadarn.plotting.vector_plot(mcolats, mlons, kvecs, los_vs, time=time_i,
+			los_dr, los_dtheta = pydatadarn.vector_plot(mcolats, mlons, kvecs, los_vs, time=time_i,
 																 station_names=stations, mlt=False, cart=True,
-																 mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360)
+																 colat_min=90-30, colat_max=0, lon_min=-125, lon_max=-65, save=True, los=True)
 			
 			#append to array
 			neutral_vel_interval = np.append(neutral_vel_interval, uao_neutral_vel)
@@ -236,7 +238,7 @@ if loop == True:
 			
 			print("\n")
 			count += 1
-			
+	
 #get x array
 x = np.arange(0, int(60/min_interval)*(hmax+1-hmin))
 tick_labels = np.array([])
@@ -248,6 +250,29 @@ while time_tick <= pydatadarn.tools.time_to_dtime(times[-1]):
  	minute = time_tick.minute
  	tick_labels = np.append(tick_labels, "{:02d}:{:02d}".format(hour, minute))
  	time_tick = time_tick + datetime.timedelta(minutes=60)	
+	
+HMB_lats = HMB_storage[:,0,:]
+HMB_lons = HMB_storage[:,1,:]
+
+HMB_latmins = np.empty(len(HMB_lats[:,]))	
+for i in range(len(HMB_latmins)):
+	HMB_latmins[i] = min(HMB_lats[i])		
+		
+data_latmins = np.empty(len(HMB_latmins))
+count = 0
+for time in lat_lon_dict:
+	data_latmins[count] = min(lat_lon_dict[time].lats)
+	count += 1
+	
+plt.figure()
+plt.plot(x, HMB_latmins, label = "HMB")	
+plt.plot(x, data_latmins, label = "plasma")
+plt.grid(linestyle = "--")
+plt.xticks(np.arange(0, len(x), 6), tick_labels)
+plt.ylabel("Latitude")
+plt.xlabel("Time")
+plt.legend()
+plt.show()
 	 
 #add -ve sign for westwards flowing currents
 # neutral_vel_interval = neutral_vel_interval*np.sign(neutral_az_interval)
@@ -284,7 +309,7 @@ plt.show()
 	
 	
 
-time_i = "2013/10/02 08:30:00"
+time_i = "2013/10/02 06:00:00"
 time_index = np.where(vectors.times == time_i)
 
 #convert time_i into seconds
@@ -439,8 +464,8 @@ dr, dtheta = pydatadarn.plotting.vector_plot(plasma_mcolats, plasma_mlons, plasm
 								station_names=stations, FPI_names=["uao"], 
 								FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
 								boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, 
-								mlt=False, cart=True, 
-								mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360)
+								mlt=False, cart=True,
+								colat_min=0, colat_max=45, lon_min=-180, lon_max=179)
 
 los_vs_index = np.where(vectors.times == time_i)
 los_vs = vectors.los_vs[los_vs_index]
@@ -450,7 +475,7 @@ kvecs = vectors.kvecs[los_vs_index]
 
 los_dr, los_dtheta = pydatadarn.plotting.vector_plot(mcolats, mlons, kvecs, los_vs, time=time_i,
 													 station_names=stations, mlt=False, cart=True,
-													 mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360)
+													 colat_min=0, colat_max=45, lon_min=-180, lon_max=180)
 
 #plot only neutral wind and ion vector at FPI station
 #get velocity and direction from spherical fit
@@ -480,10 +505,10 @@ test_mcolats = 90-test_lats
 
 test_pos = np.atleast_2d(np.array([test_lats, test_lons]))
 
-test_vels, test_az = pf.find_gradV(test_pos, solution, latmin, lon_shft, lat_shft, order)
+test_vels, test_az = pf.find_gradV(test_pos, solution, latmin, lon_shft, lat_shft, order, dtime_i)
 
 dr, dtheta = pydatadarn.plotting.vector_plot(test_mcolats, test_lons, test_az, test_vels, time=time_i, 
 								station_names=stations, FPI_names=["uao"], 
 								FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, mlt=False, 
-								mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=90, cbar_min=min(plasma_vels), 
+								mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360, cbar_min=min(plasma_vels), 
 								cbar_max=max(plasma_vels))
