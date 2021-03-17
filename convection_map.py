@@ -11,7 +11,6 @@ import pydatadarn
 import datetime
 import elliotools
 
-import potential_functions as pf
 import matplotlib.pyplot as plt
 
 import fpipy
@@ -159,7 +158,7 @@ if loop == True:
 			pos = np.array([plasma_mlats, plasma_mlons])
 			
 			#get velocity and direction from spherical fit
-			plasma_vels, plasma_az = pf.find_gradV(pos, solution, latmin, lon_shft, lat_shft, order, dtime_i)
+			plasma_vels, plasma_az = pydatadarn.find_gradV(pos, solution, latmin, lon_shft, lat_shft, order, dtime_i)
 			
 			####################
 			### Get FPI Data ###
@@ -188,7 +187,7 @@ if loop == True:
 			uao_mlat, uao_mlon = UAO.get_coords(dtime_i, aacgm=True)
 			uao_mcolat = 90-uao_mlat
 			uao_pos = np.atleast_2d(np.array([uao_mlat, uao_mlon])).T
-			uao_plasma_vel, uao_plasma_az = pf.find_gradV(uao_pos, solution, latmin, lon_shft, lat_shft, order, dtime_i)
+			uao_plasma_vel, uao_plasma_az = pydatadarn.find_gradV(uao_pos, solution, latmin, lon_shft, lat_shft, order, dtime_i)
 			
 			lat_lon_dict[time_i] = Lat_Lon_Storage(plasma_mlats, plasma_mlons)
 			
@@ -202,14 +201,14 @@ if loop == True:
 				uao_mlon = np.array(uao_mlon)
 			
 			#append uao station to plasma data locations
-			plasma_mcolats = np.append(plasma_mcolats, uao_mcolat)
-			plasma_mlons = np.append(plasma_mlons, uao_mlon)
-			plasma_vels = np.append(plasma_vels, uao_plasma_vel)
-			plasma_az = np.append(plasma_az, uao_plasma_az)
+			#plasma_mcolats = np.append(plasma_mcolats, uao_mcolat)
+			#plasma_mlons = np.append(plasma_mlons, uao_mlon)
+			#plasma_vels = np.append(plasma_vels, uao_plasma_vel)
+			#plasma_az = np.append(plasma_az, uao_plasma_az)
 			
 			#get heppner-maynard boundary
 			boundary_mlats = vectors.boundary_mlats[time_i]
-			boundary_mlons = vectors.boundary_mlons[time_i]
+			boundary_mlons = vectors.boundary_mlons[time_i]		
 			
 			uao_dr, uao_dtheta = pydatadarn.vector_plot(plasma_mcolats, plasma_mlons, plasma_az, plasma_vels, time=time_i, 
 											station_names=stations, FPI_names=["uao"], 
@@ -313,7 +312,7 @@ time_i = "2013/10/02 06:00:00"
 time_index = np.where(vectors.times == time_i)
 
 #convert time_i into seconds
-dtime_i = pydatadarn.tools.time_to_dtime(time_i)
+dtime_i = elliotools.time_to_dtime(time_i)
 time_s = (dtime_i - dtime_min).seconds
 
 ##########################
@@ -357,7 +356,7 @@ plasma_mcolats = 90-plasma_mlats
 pos = np.array([all_mlats, all_mlons])
 
 #get velocity and direction from spherical fit
-all_plasma_vels, all_plasma_az = pf.find_gradV(pos, solution, latmin, lon_shft, lat_shft, order, dtime_i)
+all_plasma_vels, all_plasma_az = pydatadarn.find_gradV(pos, solution, latmin, lon_shft, lat_shft, order, dtime_i)
 plasma_vels = all_plasma_vels[0:len(plasma_mlats)]
 plasma_az = all_plasma_az[0:len(plasma_mlats)]
 
@@ -391,7 +390,7 @@ ANN = fpipy.FPIStation("ann")
 uao_mlat, uao_mlon = UAO.get_coords(dtime_i, aacgm=True)
 uao_mcolat = 90-uao_mlat
 uao_pos = np.atleast_2d(np.array([uao_mlat, uao_mlon])).T
-uao_plasma_vel, uao_plasma_az = pf.find_gradV(uao_pos, solution, latmin, lon_shft, lat_shft, order, dtime_i)
+uao_plasma_vel, uao_plasma_az = pydatadarn.find_gradV(uao_pos, solution, latmin, lon_shft, lat_shft, order, dtime_i)
 
 ######################
 ### Make the Plots ###
@@ -446,9 +445,9 @@ glat, glon, galt = aacgmv2.convert_latlon(90, 0, 0, dtime_i)
 #get coordinates of UAO station in mlat
 uao_lat, uao_lon = UAO.get_coords(dtime_i, aacgm=True)
 #calculate angle difference
-look_change = pydatadarn.tools.cosine_rule([glat, glon], [uao_lat, uao_lon], [0, 0], polar=True)
+look_change = elliotools.cosine_rule([glat, glon], [uao_lat, uao_lon], [0, 0], polar=True)
 #figure out if geographic north is east or west of magnetic to determine which way the look changes
-if pydatadarn.tools.lon_look(0, glon) == "E":
+if elliotools.lon_look(0, glon) == "E":
 	look_change = -look_change
 #add our look difference
 uao_neutral_az += look_change
@@ -460,7 +459,7 @@ uao_neutral_az += look_change
 # plasma_az = plasma_az[test_indexes]
 # plasma_vels = plasma_vels[test_indexes]
 
-dr, dtheta = pydatadarn.plotting.vector_plot(plasma_mcolats, plasma_mlons, plasma_az, plasma_vels, time=time_i, 
+dr, dtheta = pydatadarn.vector_plot(plasma_mcolats, plasma_mlons, plasma_az, plasma_vels, time=time_i, 
 								station_names=stations, FPI_names=["uao"], 
 								FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
 								boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, 
@@ -473,14 +472,14 @@ mcolats = vectors.mcolats[los_vs_index]
 mlons = vectors.mlons[los_vs_index]
 kvecs = vectors.kvecs[los_vs_index]
 
-los_dr, los_dtheta = pydatadarn.plotting.vector_plot(mcolats, mlons, kvecs, los_vs, time=time_i,
+los_dr, los_dtheta = pydatadarn.vector_plot(mcolats, mlons, kvecs, los_vs, time=time_i,
 													 station_names=stations, mlt=False, cart=True,
 													 colat_min=0, colat_max=45, lon_min=-180, lon_max=180)
 
 #plot only neutral wind and ion vector at FPI station
 #get velocity and direction from spherical fit
 uao_pos = np.atleast_2d(np.array([uao_mlat, uao_mlon])).T
-uao_plasma_vel, uao_plasma_az = pf.find_gradV(uao_pos, solution, latmin, lon_shft, lat_shft, order, dtime_i)
+uao_plasma_vel, uao_plasma_az = pydatadarn.find_gradV(uao_pos, solution, latmin, lon_shft, lat_shft, order, dtime_i)
 
 if not isinstance(uao_plasma_vel, np.ndarray):
 	uao_plasma_vel= np.array(uao_plasma_vel)
@@ -491,7 +490,7 @@ if not isinstance(uao_mcolat, np.ndarray):
 if not isinstance(uao_mlon, np.ndarray):
 	uao_mlon = np.array(uao_mlon)
 
-uao_dr, uao_dtheta = pydatadarn.plotting.vector_plot(uao_mcolat, uao_mlon, uao_plasma_az, uao_plasma_vel, time=time_i, 
+uao_dr, uao_dtheta = pydatadarn.vector_plot(uao_mcolat, uao_mlon, uao_plasma_az, uao_plasma_vel, time=time_i, 
 								station_names=stations, FPI_names=["uao"], 
 								FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, mlt=False, cart=True,
 								mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360, save=True)
@@ -505,9 +504,9 @@ test_mcolats = 90-test_lats
 
 test_pos = np.atleast_2d(np.array([test_lats, test_lons]))
 
-test_vels, test_az = pf.find_gradV(test_pos, solution, latmin, lon_shft, lat_shft, order, dtime_i)
+test_vels, test_az = pydatadarn.find_gradV(test_pos, solution, latmin, lon_shft, lat_shft, order, dtime_i)
 
-dr, dtheta = pydatadarn.plotting.vector_plot(test_mcolats, test_lons, test_az, test_vels, time=time_i, 
+dr, dtheta = pydatadarn.vector_plot(test_mcolats, test_lons, test_az, test_vels, time=time_i, 
 								station_names=stations, FPI_names=["uao"], 
 								FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, mlt=False, 
 								mcolat_min=0, mcolat_max=45, theta_min=0, theta_max=360, cbar_min=min(plasma_vels), 
