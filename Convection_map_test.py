@@ -9,6 +9,12 @@ Created on Tue Mar 16 17:24:59 2021
 import pydatadarn
 import json
 import os
+import fpipy
+import elliotools
+import datetime as dt
+import matplotlib.pyplot as plt
+import gc
+import aacgmv2
 
 import numpy as np
 
@@ -17,10 +23,16 @@ path = "/home/elliott/Documents/python_analysis/Convection mapping/data/"
 all_files = sorted(os.listdir(path))
 num_files = len(all_files)
 
-HMB_latmins = np.empty(num_files)
-HMB_latmins[:] = np.nan
-plasma_latmins = np.empty(num_files)
-plasma_latmins[:]
+HMB_mlatmins = np.empty(num_files)
+HMB_mlatmins[:] = np.nan
+plasma_mlatmins = np.empty(num_files)
+plasma_mlatmins[:] = np.nan
+los_mlatmins = np.empty(num_files)
+los_mlatmins[:] = np.nan
+
+uao = fpipy.FPIStation("uao")
+
+data_dict=dict()
 
 count = 0
 for fname in all_files:
@@ -28,7 +40,6 @@ for fname in all_files:
 		count += 1
 		continue
 	else:
-		print(fname)
 		date = fname[0:15]
 		with open(path+fname) as json_file:
 			data = json.load(json_file)
@@ -41,40 +52,187 @@ for fname in all_files:
 			time_i = data["time"]
 			uao_neutral_az = np.array(data["uao_neutral_kvec"])
 			uao_neutral_vel = np.array([data["uao_neutral_vel"]])
+			uao_plasma_az = np.array(data["uao_plasma_az"])
+			uao_plasma_vel = np.array(data["uao_plasma_vel"])
+			uao_mcolat = data["uao_mcolat"]
+			uao_mlat = 90-uao_mcolat
+			uao_mlon = data["uao_mlon"]
 			boundary_mlats = np.array(data["hmb_mlats"])
 			boundary_mlons = np.array(data["hmb_mlons"])
 			los_vs = np.array(data["los_vs"])
 			los_mcolats = np.array(data["los_mcolats"])
+			los_mlats = 90-los_mcolats
 			los_mlons = np.array(data["los_mlons"])
 			los_kvecs = np.array(data["los_kvecs"])
-			
 		
-			HMB_latmins[count] = min(boundary_mlats)
-			plasma_latmins[count] = min(90-plasma_mlats)
-# 		
+			HMB_mlatmins[count] = min(boundary_mlats)
+			plasma_mlatmins[count] = min(plasma_mlats)
+			los_mlatmins[count] = min(los_mlats)
+		
 # 			dr, dtheta = pydatadarn.vector_plot(los_mcolats, los_mlons, los_kvecs, los_vs, time=time_i, 
-# 									station_names=["bks"], FPI_names=["uao"], 
-# 									FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
-# 									boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, save="pictures/L",
-# 									mlt=False, cart=True,)
+#  									station_names=["bks"], FPI_names=["uao"], 
+#  									FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
+#  									boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, save="pictures/L",
+#  									mlt=False, cart=True,)
 # 		
 # 			dr, dtheta = pydatadarn.vector_plot(plasma_mcolats, plasma_mlons, plasma_az, plasma_vels, time=time_i, 
-# 											station_names=["bks"], FPI_names=["uao"], 
-# 											FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
-# 											boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, save="pictures/C",
-# 											mlt=False, cart=True)
+#  											station_names=["bks"], FPI_names=["uao"], 
+#  											FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
+#  											boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, save="pictures/C",
+#  											mlt=False, cart=True)
 # 				
 # 			dr, dtheta = pydatadarn.vector_plot(plasma_mcolats, plasma_mlons, plasma_az, plasma_vels, time=time_i, 
-# 											station_names=["bks"], FPI_names=["uao"], 
-# 											FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
-# 											boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, 
-# 											mlt=False, cart=True, set_extent=True, save="pictures/CZ",
-# 											colat_range=[60, 0], lon_range=[-125, -65])
-			
-			dr, dtheta = pydatadarn.vector_plot(los_mcolats, los_mlons, los_kvecs, los_vs, time=time_i, 
-									station_names=["bks"], FPI_names=["uao"], 
-									FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
-									boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, save="pictures/LZ",
-									mlt=False, cart=True, set_extent=True, colat_range=[60, 0], lon_range=[-125, -65])
-			
+#  											station_names=["bks"], FPI_names=["uao"], 
+#  											FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
+#  											boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, 
+#  											mlt=False, cart=True, set_extent=True, save="pictures/CZ",
+#  											colat_range=[60, 0], lon_range=[-125, -65])
+ 			
+# 			dr, dtheta = pydatadarn.vector_plot(los_mcolats, los_mlons, los_kvecs, los_vs, time=time_i, 
+#  									station_names=["bks"], FPI_names=["uao"], 
+#  									FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
+#  									boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, save="pictures/LZ",
+#  									mlt=False, cart=True, set_extent=True, colat_range=[60, 0], lon_range=[-125, -65])
+# 			
+# 			gc.collect()
 			count += 1
+			
+x = np.arange(0, count, 1)
+tick_labels = np.array([])
+start = all_files[0]
+time_start = "{}/{}/{}_{}:{}:{}".format(start[0:4], start[4:6], start[6:8], start[9:11], start[11:13], start[13:15])	
+dtime_start = elliotools.time_to_dtime(time_start)
+dtime=dtime_start
+for i in range(count):
+	tick_labels = np.append(tick_labels, "{:02d}:{:02d}".format(dtime.hour, dtime.minute))
+	dtime += dt.timedelta(seconds=60*10)
+
+
+
+plt.figure()
+plt.plot(x, HMB_mlatmins, label = "HMB")	
+plt.plot(x, plasma_mlatmins, label = "Con. Plasma")
+plt.axhline(uao_mlat, color="red", linestyle="--", label="uao")
+plt.grid(linestyle = "--")
+plt.xticks(np.arange(0, len(x), 6), tick_labels[::6])
+plt.ylabel("Min. MLatitude")
+plt.xlabel("Time")
+plt.legend()
+plt.show()	
+
+single_fname = "20131002_092000.json"
+single_time = "{}/{}/{}_{}:{}:{}".format(single_fname[0:4], single_fname[4:6], 
+										 single_fname[6:8], single_fname[9:11], 
+										 single_fname[11:13], single_fname[13:15])
+with open(path+single_fname) as json_file:
+	data = json.load(json_file)
+
+	plasma_mcolats = np.array(data["plasma_mcolats"])
+	plasma_mlats = 90-plasma_mcolats
+	plasma_mlons = np.array(data["plasma_mlons"])
+	plasma_az = np.array(data["plasma_az"])
+	plasma_vels = np.array(data["plasma_vels"])
+	time_i = data["time"]
+	uao_neutral_az = np.array(data["uao_neutral_kvec"])
+	uao_neutral_vel = np.array([data["uao_neutral_vel"]])
+	uao_plasma_az = np.array(data["uao_plasma_az"])
+	uao_plasma_vel = np.array(data["uao_plasma_vel"])
+	uao_mcolat = data["uao_mcolat"]
+	uao_mlat = 90-uao_mcolat
+	uao_mlon = data["uao_mlon"]
+	boundary_mlats = np.array(data["hmb_mlats"])
+	boundary_mlons = np.array(data["hmb_mlons"])
+	los_vs = np.array(data["los_vs"])
+	los_mcolats = np.array(data["los_mcolats"])
+	los_mlats = 90-los_mcolats
+	los_mlons = np.array(data["los_mlons"])
+	los_kvecs = np.array(data["los_kvecs"])
+	
+index = np.where(plasma_mlats == min(plasma_mlats))
+#plasma_mlons = elliotools.lon360_to_180(plasma_mlons)
+print("mlat", plasma_mlats[index], "mlons", plasma_mlons[index])
+plasma_lats, plasma_lons, r = aacgmv2.convert_latlon_arr(plasma_mlats, plasma_mlons, 0, elliotools.time_to_dtime(single_time), "A2G")
+print("lats", plasma_lats[index], "lons", plasma_lons[index])
+
+# dr, dtheta = pydatadarn.vector_plot(los_mcolats, los_mlons, los_kvecs, los_vs, time=time_i, 
+#  									station_names=["bks"], FPI_names=["uao"], 
+#  									FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
+#  									boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons,
+#  									mlt=False, cart=True,)
+
+# dr, dtheta = pydatadarn.vector_plot(plasma_mcolats, plasma_mlons, plasma_az, plasma_vels, time=time_i, 
+#  											station_names=["bks"], FPI_names=["uao"], 
+#  											FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
+#  											boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons,
+#  											mlt=False, cart=True)
+
+# dr, dtheta = pydatadarn.vector_plot(plasma_mcolats, plasma_mlons, plasma_az, plasma_vels, time=time_i, 
+#  											station_names=["bks"], FPI_names=["uao"], 
+#  											FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
+#  											boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, 
+#  											mlt=False, cart=True, set_extent=True,
+#  											colat_range=[60, 0], lon_range=[-125, -65])
+ 			
+dr, dtheta = pydatadarn.vector_plot(los_mcolats, los_mlons, los_kvecs, los_vs, time=time_i, 
+ 									station_names=["bks"], FPI_names=["uao"], 
+ 									FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
+ 									boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, centre=[0, 90],
+ 									mlt=False, cart=True)#, set_extent=True, colat_range=[60, 0], lon_range=[-125, -65])
+
+single_fname = "20131002_093000.json"
+single_time = "{}/{}/{}_{}:{}:{}".format(single_fname[0:4], single_fname[4:6], 
+										 single_fname[6:8], single_fname[9:11], 
+										 single_fname[11:13], single_fname[13:15])
+with open(path+single_fname) as json_file:
+	data = json.load(json_file)
+
+	plasma_mcolats = np.array(data["plasma_mcolats"])
+	plasma_mlats = 90-plasma_mcolats
+	plasma_mlons = np.array(data["plasma_mlons"])
+	plasma_az = np.array(data["plasma_az"])
+	plasma_vels = np.array(data["plasma_vels"])
+	time_i = data["time"]
+	uao_neutral_az = np.array(data["uao_neutral_kvec"])
+	uao_neutral_vel = np.array([data["uao_neutral_vel"]])
+	uao_plasma_az = np.array(data["uao_plasma_az"])
+	uao_plasma_vel = np.array(data["uao_plasma_vel"])
+	uao_mcolat = data["uao_mcolat"]
+	uao_mlat = 90-uao_mcolat
+	uao_mlon = data["uao_mlon"]
+	boundary_mlats = np.array(data["hmb_mlats"])
+	boundary_mlons = np.array(data["hmb_mlons"])
+	los_vs = np.array(data["los_vs"])
+	los_mcolats = np.array(data["los_mcolats"])
+	los_mlats = 90-los_mcolats
+	los_mlons = np.array(data["los_mlons"])
+	los_kvecs = np.array(data["los_kvecs"])
+	
+index = np.where(plasma_mlats == min(plasma_mlats))
+print("mlat", plasma_mlats[index], "mlons", plasma_mlons[index])
+plasma_lats, plasma_lons, r = aacgmv2.convert_latlon_arr(plasma_mlats, plasma_mlons, 0, elliotools.time_to_dtime(single_time), "A2G")
+print("lats", plasma_lats[index], "lons", plasma_lons[index])
+
+# dr, dtheta = pydatadarn.vector_plot(los_mcolats, los_mlons, los_kvecs, los_vs, time=time_i, 
+#  									station_names=["bks"], FPI_names=["uao"], 
+#  									FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
+#  									boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons,
+#  									mlt=False, cart=True,)
+
+# dr, dtheta = pydatadarn.vector_plot(plasma_mcolats, plasma_mlons, plasma_az, plasma_vels, time=time_i, 
+#  											station_names=["bks"], FPI_names=["uao"], 
+#  											FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
+#  											boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons,
+#  											mlt=False, cart=True)
+
+# dr, dtheta = pydatadarn.vector_plot(plasma_mcolats, plasma_mlons, plasma_az, plasma_vels, time=time_i, 
+#  											station_names=["bks"], FPI_names=["uao"], 
+#  											FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
+#  											boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, 
+#  											mlt=False, cart=True, set_extent=True,
+#  											colat_range=[60, 0], lon_range=[-125, -65])
+ 			
+dr, dtheta = pydatadarn.vector_plot(los_mcolats, los_mlons, los_kvecs, los_vs, time=time_i, 
+ 									station_names=["bks"], FPI_names=["uao"], 
+ 									FPI_kvecs=uao_neutral_az, FPI_vels=uao_neutral_vel, 
+ 									boundary_mlats=boundary_mlats, boundary_mlons=boundary_mlons, centre=[0, 90],
+ 									mlt=False, cart=True)#, set_extent=True, colat_range=[60, 0], lon_range=[-125, -65])
