@@ -1,0 +1,14 @@
+idl = python
+
+##############################
+### get_electric_potential ###
+##############################
+
+xxx_arr = lons (array of all longitudes)
+zon_arr = lon_range (array of all unique longitude values)
+zat_arr = lat_range (array of all unique latitude values)
+
+theta = magnetic colatitude
+phi = longitude
+
+ecoeffs = Alm
